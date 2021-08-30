@@ -19,10 +19,13 @@ With [npm](https://www.npmjs.com/) do:
 
 ### Step 1 - Token Bucket
 
-Create a token bucket. It holds tokens that represent a numeric cost for launching jobs. For example, you can create a bucket with 10 tokens. You can consume 1 token to launch a job with a cost of 1. Other jobs might consume more/less tokens, whatever makes more sense for your application.
+Create a token bucket. It holds tokens that represent a numeric cost of launching jobs. For example, you can create a bucket with 10 tokens. You can consume 1 token to launch a job with a cost of 1. Other jobs might consume more/less tokens, whatever makes more sense for your application.
 
 ```ts
-import { RollingWindowTokenBucket, TokenBucket } from '@mangosteen/rate-limiter';
+import {
+    RollingWindowTokenBucket,
+    TokenBucket
+} from '@mangosteen/rate-limiter';
 
 // This token bucket does not care about history,
 // so once a job consumes tokens from the bucket, it
@@ -34,7 +37,7 @@ const basicTokenBucket = new TokenBucket({
 
 // This token bucket keeps a history of past jobs in the
 // last `X` milliseconds, and you may limit how many jobs
-// could be launched during the history window.
+// can be launched during the history window.
 const windowTokenBucket = new RollingWindowTokenBucket({
     initialTokens: 10,
     maxTokens: 20,
@@ -48,7 +51,10 @@ const windowTokenBucket = new RollingWindowTokenBucket({
 Token bucket by itself is just that - a storage of tokens. As you burn through the initial tokens, you may want to start restoring some tokens back! This is what token restorers are for.
 
 ```ts
-import { ContinuousTokenRestorer, PeriodicTokenRestorer } from '@mangosteen/rate-limiter';
+import {
+    ContinuousTokenRestorer,
+    PeriodicTokenRestorer
+} from '@mangosteen/rate-limiter';
 
 // Periodic token restorers restore tokens ... periodically!
 // After each period elapses, the specified number of tokens
@@ -68,9 +74,9 @@ const periodicRestorer = new PeriodicTokenRestorer({
 bucket.addTokenRestorer(periodicRestorer);
 
 // Continuous token restorers restore tokens ... continuously!
-// At any instant, we can compute how many (partial) tokens should
-// be restored. Our rate limiter can figure out the proper scheduling
-// to make this work.
+// At any instant, we can compute how many (partial) tokens
+// should be restored. Our token buckets can figure out the
+// proper scheduling to make this work.
 const continuousRestorer = new ContinuousTokenRestorer({
     rate: {
         amount: 3,
@@ -79,8 +85,8 @@ const continuousRestorer = new ContinuousTokenRestorer({
 });
 bucket.addTokenRestorer(continuousRestorer);
 
-// And last but not least, you can add arbitrary number of restorers
-// to a single bucket!
+// And last but not least, you can add arbitrary number of
+// restorers to a single bucket!
 bucket.addTokenRestorer(periodicRestorer1);
 bucket.addTokenRestorer(periodicRestorer2);
 bucket.addTokenRestorer(periodicRestorer3);
@@ -161,7 +167,13 @@ await promise;
 ## Using custom high-precision timer
 
 ```ts
-import { IntervalScheduler, TimeoutScheduler, TokenBucket, RollingWindowTokenBucket, PeriodicTokenRestorer } from '@mangosteen/rate-limiter';
+import {
+    IntervalScheduler,
+    TimeoutScheduler,
+    TokenBucket,
+    RollingWindowTokenBucket,
+    PeriodicTokenRestorer
+} from '@mangosteen/rate-limiter';
 import NanoTimer from 'nanotimer';
 
 // 1) Create a scheduler factory instance
