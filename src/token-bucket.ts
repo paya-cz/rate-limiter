@@ -74,8 +74,7 @@ export class TokenBucket {
                     restorer,
                     restorer.subscribe(
                         count => {
-                            this._addTokensToBucket(count);
-                            this._checkListeners();
+                            this.restoreTokens(count);
                         },
                     ),
                 );
@@ -219,6 +218,15 @@ export class TokenBucket {
                 cancelWait?.();
             },
         };
+    }
+
+    /**
+     * Restore the specified number of tokens.
+     * @param count The number of tokens to restore.
+     */
+    restoreTokens(count: number): void {
+        this._addTokensToBucket(count);
+        this._checkListeners();
     }
 
     protected _onTokensConsumed(_count: number): void {

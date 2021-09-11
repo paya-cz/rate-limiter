@@ -71,6 +71,14 @@ export class PrioritizedFifoRateLimiter {
         return { promise, cancel };
     }
 
+    /**
+     * Restore the specified number of tokens.
+     * @param count The number of tokens to restore.
+     */
+     restoreTokens(count: number): void {
+         this._tokenBucket.restoreTokens(count);
+    }
+
     private _recreateWatcher(): void {
         // Get previous watcher
         const prevWatcher = this._watcher;
