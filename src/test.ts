@@ -30,7 +30,15 @@ main().catch(error => {
 });
 
 async function main(): Promise<void> {
+    const tests = [
+        testParallelism,
+        testMemoryLeaks,
+    ] as const;
 
+    await tests[1]();
+}
+
+async function testParallelism(): Promise<void> {
     // const tokenBucket = new TokenBucket({
     //     initialTokens: 1,
     //     maxTokens: 1,
@@ -85,43 +93,43 @@ async function main(): Promise<void> {
     }
 }
 
-// async function testMemoryLeaks(): Promise<void> {
-//     const parallelism = 3000;
+async function testMemoryLeaks(): Promise<void> {
+    const parallelism = 3000;
 
-//     const bucket = new RollingWindowTokenBucket({
-//         initialTokens: parallelism,
-//         maxTokens: parallelism,
-//         historyIntervalMs: 1000,
-//         maxHistoryTokens: parallelism,
-//     });
+    const bucket = new RollingWindowTokenBucket({
+        initialTokens: parallelism,
+        maxTokens: parallelism,
+        historyIntervalMs: 1000,
+        maxHistoryTokens: parallelism,
+    });
     
-//     bucket.addTokenRestorer(new ContinuousTokenRestorer({
-//         amount: parallelism,
-//         intervalMs: 1000,
-//     }));
+    bucket.addTokenRestorer(new ContinuousTokenRestorer({
+        amount: parallelism,
+        intervalMs: 1000,
+    }));
     
-//     const limiter = new PrioritizedFifoRateLimiter({
-//         tokenBucket: bucket,
-//     });
+    const limiter = new PrioritizedFifoRateLimiter({
+        tokenBucket: bucket,
+    });
 
-//     setInterval(() => {
-//         console.log();
-//         console.log('-----');
-//         console.log();
+    setInterval(() => {
+        console.log();
+        console.log('-----');
+        console.log();
 
-//         const used = process.memoryUsage();
-//         for (let key in used) {
-//             // @ts-ignore
-//             console.log(`${key} ${Math.round(used[key] / 1024 / 1024 * 100) / 100} MB`);
-//         }
-//     }, 5000);
+        const used = process.memoryUsage();
+        for (let key in used) {
+            // @ts-ignore
+            console.log(`${key} ${Math.round(used[key] / 1024 / 1024 * 100) / 100} MB`);
+        }
+    }, 5000);
 
-//     for (let p = 0; p < parallelism; p++) {
-//         (async () => {
-//             while (true) {
-//                 const { promise } = limiter.consumeTokensAsync(1, 0);
-//                 await promise;
-//             }
-//         })();
-//     }
-// }
+    for (let p = 0; p < parallelism; p++) {
+        (async () => {
+            while (true) {
+                const { promise } = limiter.consumeTokensAsync(1, 0);
+                await promise;
+            }
+        })();
+    }
+}

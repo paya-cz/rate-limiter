@@ -4,6 +4,9 @@ import { performance } from 'just-performance';
 import { CanceledError, DefaultScheduler, ErrorCallback, TimeoutScheduler, VoidCallback } from './models';
 import { TokenBucket } from './token-bucket';
 
+const cancellationError = {};
+function noop(): void { }
+
 interface Awaiter {
     /** How many tokens the awaiter asked for. */
     tokenCount: number;
@@ -85,10 +88,9 @@ export class PrioritizedFifoRateLimiter {
         let prevWatcher = this._watcher;
 
         // Create a new promise, used to signal watcher cancellation
-        let isCanceled = false;
-        let rejectCancelPromise!: VoidCallback;
+        let rejectCancel!: ErrorCallback;
         const cancelPromise = new Promise<never>((_resolve, reject) => {
-            rejectCancelPromise = () => reject(new CanceledError());
+            rejectCancel = reject;
         });
 
         // Create watcher promise, used to propagate errors and signal completion
@@ -103,22 +105,22 @@ export class PrioritizedFifoRateLimiter {
         const currentWatcher = this._watcher = {
             promise: watcherPromise,
             cancel: () => {
-                isCanceled = true;
-                rejectCancelPromise();
+                // Avoid error allocation to ease memory pressure
+                rejectCancel(cancellationError);
             },
         };
 
         (async () => {
             try {
                 if (prevWatcher) {
-                    // Cancel previous watcher
-                    prevWatcher.cancel();
-        
-                    // Wait for the watcher to finish
                     try {
+                        // Cancel previous watcher
+                        prevWatcher.cancel();
+
+                        // Wait for the watcher to finish
                         await prevWatcher.promise;
                     } catch (error) {
-                        if (!(error instanceof CanceledError)) {
+                        if (error !== cancellationError && !(error instanceof CanceledError)) {
                             throw error;
                         }
                     } finally {
@@ -127,11 +129,21 @@ export class PrioritizedFifoRateLimiter {
                     }
                 }
 
+                // Create a stagger delay
+                const { promise: delayPromise, cancel: cancelDelay } = this._delay(
+                    this._lastConsumed + this._minStaggerTime - performance.now(),
+                );
+
                 // Stagger awaiters
-                await Promise.race([
-                    cancelPromise,
-                    this._delay(this._lastConsumed + this._minStaggerTime - performance.now()),
-                ]);
+                try {
+                    await Promise.race([
+                        cancelPromise,
+                        delayPromise,
+                    ]);
+                } finally {
+                    // Aid GC by removing the timer
+                    cancelDelay();
+                }
 
                 // Find the first highest-priority awaiter
                 const { key: priority, value: queue } = this._awaiters.end;
@@ -148,7 +160,7 @@ export class PrioritizedFifoRateLimiter {
                             cancelPromise,
                         ]);
                     } catch (error) {
-                        if (isCanceled && error instanceof CanceledError) {
+                        if (error === cancellationError || error instanceof CanceledError) {
                             cancelConsume();
                             await consumePromise;
                         }
@@ -172,7 +184,7 @@ export class PrioritizedFifoRateLimiter {
                 // Check if the error was thrown without having a replacement watcher
                 if (this._watcher === currentWatcher) {
                     // Propagate the error to awaiters
-                    this._rejectAllAwaiters(error);
+                    this._rejectAllAwaiters(error === cancellationError ? new CanceledError() : error);
                 }
 
                 rejectWatcher(error);
@@ -228,13 +240,24 @@ export class PrioritizedFifoRateLimiter {
         return false;
     }
 
-    private _delay(ms: number): Promise<void> {
+    private _delay(ms: number): { promise: Promise<void>, cancel: VoidCallback } {
+        let promise: Promise<void>;
+        let cancel!: VoidCallback;
+
         if (ms <= 0) {
-            return Promise.resolve();
+            promise = Promise.resolve();
+            cancel = noop;
         } else {
-            return new Promise<void>(
-                resolve => this._scheduler.setTimeout(resolve, ms),
-            );
+            promise = new Promise<void>((resolve, reject) => {
+                const t = this._scheduler.setTimeout(resolve, ms);
+
+                cancel = () => {
+                    this._scheduler.clearTimeout(t);
+                    reject(cancellationError);
+                };
+            });
         }
+        
+        return { promise, cancel };
     }
 }
