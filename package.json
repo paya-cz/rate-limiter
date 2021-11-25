@@ -13,7 +13,8 @@
         "test-publish-npm": "npm pack",
         "publish-npm": "npm publish --access public",
         "prepublish": "npm run build",
-        "start": "ts-node ./src/test.ts"
+        "start": "ts-node ./src/test.ts",
+        "start:debugger": "node --inspect -r ts-node/register ./src/test.ts"
     },
     "repository": {
         "type": "git",

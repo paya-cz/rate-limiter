@@ -46,9 +46,9 @@ export const DefaultScheduler: IntervalScheduler & TimeoutScheduler = {
     setTimeout: setTimeout,
     clearTimeout: clearTimeout,
 }
- 
+
 export class CanceledError extends BaseError {
-  constructor() {
-    super('Operation has been canceled.');
-  }
+    constructor() {
+        super('Operation has been canceled.');
+    }
 }

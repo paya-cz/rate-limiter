@@ -81,7 +81,7 @@ export class PrioritizedFifoRateLimiter {
 
     private _recreateWatcher(): void {
         // Get previous watcher
-        const prevWatcher = this._watcher;
+        let prevWatcher = this._watcher;
 
         // Create a new promise, used to signal watcher cancellation
         let isCanceled = false;
@@ -120,6 +120,9 @@ export class PrioritizedFifoRateLimiter {
                         if (!(error instanceof CanceledError)) {
                             throw error;
                         }
+                    } finally {
+                        // Release the captured reference so it can be garbage-collected
+                        prevWatcher = undefined;
                     }
                 }
 

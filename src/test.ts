@@ -1,8 +1,8 @@
 import NanoTimer from 'nanotimer';
-import { IntervalScheduler, TimeoutScheduler } from "./models";
-import { PrioritizedFifoRateLimiter } from "./rate-limiter";
-import { RollingWindowTokenBucket } from "./rolling-window-token-bucket";
-import { ContinuousTokenRestorer, PeriodicTokenRestorer } from "./token-restorers";
+import { IntervalScheduler, TimeoutScheduler } from './models';
+import { PrioritizedFifoRateLimiter } from './rate-limiter';
+import { RollingWindowTokenBucket } from './rolling-window-token-bucket';
+import { ContinuousTokenRestorer, PeriodicTokenRestorer } from './token-restorers';
 
 // Custom high-precision scheduler
 const scheduler: TimeoutScheduler<NanoTimer> & IntervalScheduler<NanoTimer> = {
@@ -64,7 +64,6 @@ async function main(): Promise<void> {
         ),
     );
     
-
     const limiter = new PrioritizedFifoRateLimiter({
         tokenBucket,
         minStaggerTime: 250,
@@ -85,3 +84,44 @@ async function main(): Promise<void> {
         })();
     }
 }
+
+// async function testMemoryLeaks(): Promise<void> {
+//     const parallelism = 3000;
+
+//     const bucket = new RollingWindowTokenBucket({
+//         initialTokens: parallelism,
+//         maxTokens: parallelism,
+//         historyIntervalMs: 1000,
+//         maxHistoryTokens: parallelism,
+//     });
+    
+//     bucket.addTokenRestorer(new ContinuousTokenRestorer({
+//         amount: parallelism,
+//         intervalMs: 1000,
+//     }));
+    
+//     const limiter = new PrioritizedFifoRateLimiter({
+//         tokenBucket: bucket,
+//     });
+
+//     setInterval(() => {
+//         console.log();
+//         console.log('-----');
+//         console.log();
+
+//         const used = process.memoryUsage();
+//         for (let key in used) {
+//             // @ts-ignore
+//             console.log(`${key} ${Math.round(used[key] / 1024 / 1024 * 100) / 100} MB`);
+//         }
+//     }, 5000);
+
+//     for (let p = 0; p < parallelism; p++) {
+//         (async () => {
+//             while (true) {
+//                 const { promise } = limiter.consumeTokensAsync(1, 0);
+//                 await promise;
+//             }
+//         })();
+//     }
+// }
