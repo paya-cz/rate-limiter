@@ -57,10 +57,11 @@ export class PrioritizedFifoRateLimiter {
         let cancel!: VoidCallback;
 
         const promise = new Promise<void>((resolve, reject) => {
-            this._addAwaiter(priority, { tokenCount, resolve, reject });
+            const newAwaiter: Awaiter = { tokenCount, resolve, reject };
+            this._addAwaiter(priority, newAwaiter);
 
             cancel = () => {
-                if (this._removeFirstAwaiter(priority, awaiter => awaiter.reject === reject)) {
+                if (this._removeFirstAwaiter(priority, awaiter => awaiter === newAwaiter)) {
                     this._recreateWatcher();
                     reject(new CanceledError());
                 }
@@ -75,8 +76,8 @@ export class PrioritizedFifoRateLimiter {
      * Restore the specified number of tokens.
      * @param count The number of tokens to restore.
      */
-     restoreTokens(count: number): void {
-         this._tokenBucket.restoreTokens(count);
+    restoreTokens(count: number): void {
+        this._tokenBucket.restoreTokens(count);
     }
 
     private _recreateWatcher(): void {
@@ -179,9 +180,7 @@ export class PrioritizedFifoRateLimiter {
         })();
     }
 
-    private _rejectAllAwaiters(error: any): boolean {
-        let someoneRejected = false;
-
+    private _rejectAllAwaiters(error: unknown): void {
         // Clear the collection first
         const awaiters = this._awaiters;
         this._awaiters = redBlackTree<number, Denque<Awaiter>>();
@@ -189,11 +188,8 @@ export class PrioritizedFifoRateLimiter {
         awaiters.forEach((_priority, queue) => {
             for (let i = 0; i < queue.length; i++) {
                 queue.peekAt(i)!.reject(error);
-                someoneRejected = true;
             }
         });
-
-        return someoneRejected;
     }
 
     private _addAwaiter(priority: number, awaiter: Awaiter): void {
@@ -210,26 +206,26 @@ export class PrioritizedFifoRateLimiter {
     }
 
     private _removeFirstAwaiter(priority: number, predicate: (awaiter: Awaiter) => boolean): boolean {
-        const queueIter = this._awaiters.find(priority);
-        const queue = queueIter.value;
-        let success = false;
+        const iter = this._awaiters.find(priority);
+        const queue = iter?.value;
 
         if (queue) {
-            for (let i = 0; i < queue.length; i++) {
-                if (predicate(queue.peekAt(i)!)) {
-                    queue.removeOne(i);
-                    success = true;
-                    break;
+            try {
+                for (let i = 0; i < queue.length; i++) {
+                    if (predicate(queue.peekAt(i)!)) {
+                        queue.removeOne(i);
+                        return true;
+                    }
                 }
-            }
-
-            // Remove empty queue
-            if (queue.length <= 0) {
-                this._awaiters = queueIter.remove();
+            } finally {
+                // Remove empty queue
+                if (queue.length <= 0) {
+                    this._awaiters = iter.remove();
+                }
             }
         }
 
-        return success;
+        return false;
     }
 
     private _delay(ms: number): Promise<void> {
